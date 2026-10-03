@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 import '../../../core/api/api_exception.dart';
 import '../models/post_model.dart';
@@ -13,7 +15,10 @@ class PostProvider extends ChangeNotifier {
     : _repository = repository ?? PostRepository();
 
   ViewState _state = ViewState.initial;
-  List<PostModel> _posts = [];
+  List<PostModel> _posts = const [];
+  UnmodifiableListView<PostModel> _postsView = UnmodifiableListView(
+    const <PostModel>[],
+  );
   String? _errorMessage;
   String? _paginationErrorMessage;
 
@@ -24,7 +29,7 @@ class PostProvider extends ChangeNotifier {
   int _requestGeneration = 0;
 
   ViewState get state => _state;
-  List<PostModel> get posts => List.unmodifiable(_posts);
+  List<PostModel> get posts => _postsView;
   String? get errorMessage => _errorMessage;
   String? get paginationErrorMessage => _paginationErrorMessage;
   int get totalCount => _totalCount;
@@ -46,7 +51,7 @@ class PostProvider extends ChangeNotifier {
       final result = await _repository.getLatestPosts(page: 1, limit: _limit);
 
       if (generation != _requestGeneration) return;
-      _posts = _uniquePosts(result.posts);
+      _replacePosts(_uniquePosts(result.posts));
       _page = 1;
       _totalCount = result.totalCount;
       _hasMore = _canLoadMore(result.posts.length);
@@ -90,7 +95,7 @@ class PostProvider extends ChangeNotifier {
       );
       if (generation != _requestGeneration) return;
       _page = next;
-      _posts = _uniquePosts([..._posts, ...result.posts]);
+      _appendUniquePosts(result.posts);
       if (result.totalCount > 0) _totalCount = result.totalCount;
       _hasMore = _canLoadMore(result.posts.length);
     } on ApiException catch (e) {
@@ -113,6 +118,20 @@ class PostProvider extends ChangeNotifier {
   bool _canLoadMore(int lastPageLength) {
     if (_totalCount > 0) return _posts.length < _totalCount;
     return lastPageLength >= _limit;
+  }
+
+  void _replacePosts(List<PostModel> posts) {
+    _posts = posts;
+    _postsView = UnmodifiableListView(_posts);
+  }
+
+  void _appendUniquePosts(List<PostModel> incoming) {
+    final seen = _posts.map((post) => post.uniqueKey).toSet();
+    final merged = [..._posts];
+    for (final post in incoming) {
+      if (seen.add(post.uniqueKey)) merged.add(post);
+    }
+    _replacePosts(merged);
   }
 
   List<PostModel> _uniquePosts(List<PostModel> posts) {

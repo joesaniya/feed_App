@@ -488,64 +488,82 @@ class _MediaTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final placeholder = Container(
+    const placeholder = ColoredBox(
       color: HomeColors.mediaBg,
-      alignment: Alignment.center,
-      child: const Icon(
-        Icons.image_not_supported_outlined,
-        color: HomeColors.muted,
+      child: Center(
+        child: Icon(
+          Icons.image_not_supported_outlined,
+          color: HomeColors.muted,
+        ),
+      ),
+    );
+    const loadingPlaceholder = ColoredBox(
+      color: HomeColors.mediaBg,
+      child: Center(
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
       ),
     );
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(_PostMedia._radius),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          if (file.previewUrl.isEmpty)
-            placeholder
-          else
-            Image.network(
-              file.previewUrl,
-              fit: BoxFit.cover,
-              cacheWidth: 800,
-              loadingBuilder: (_, child, progress) => progress == null
-                  ? child
-                  : Container(
-                      color: HomeColors.mediaBg,
-                      alignment: Alignment.center,
-                      child: const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
-                    ),
-              errorBuilder: (_, __, ___) => placeholder,
-            ),
-          if (file.isVideo)
-            const Center(
-              child: CircleAvatar(
-                radius: 24,
-                backgroundColor: Colors.black54,
-                child: Icon(Icons.play_arrow, color: Colors.white, size: 30),
-              ),
-            ),
-          if (overlayCount > 0)
-            Container(
-              color: Colors.black45,
-              alignment: Alignment.center,
-              child: Text(
-                '+$overlayCount',
-                style: const TextStyle(
-                  fontFamily: _font,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cacheWidth =
+            (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context))
+                .ceil()
+                .clamp(1, 1600)
+                .toInt();
+
+        return ClipRRect(
+          borderRadius: BorderRadius.circular(_PostMedia._radius),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (file.previewUrl.isEmpty)
+                placeholder
+              else
+                Image.network(
+                  file.previewUrl,
+                  fit: BoxFit.cover,
+                  cacheWidth: cacheWidth,
+                  frameBuilder: (_, child, frame, loadedSynchronously) =>
+                      loadedSynchronously || frame != null
+                      ? child
+                      : loadingPlaceholder,
+                  errorBuilder: (_, __, ___) => placeholder,
                 ),
-              ),
-            ),
-        ],
-      ),
+              if (file.isVideo)
+                const Center(
+                  child: CircleAvatar(
+                    radius: 24,
+                    backgroundColor: Colors.black54,
+                    child: Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 30,
+                    ),
+                  ),
+                ),
+              if (overlayCount > 0)
+                Container(
+                  color: Colors.black45,
+                  alignment: Alignment.center,
+                  child: Text(
+                    '+$overlayCount',
+                    style: const TextStyle(
+                      fontFamily: _font,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

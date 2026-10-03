@@ -8,6 +8,7 @@ import 'package:simple_app/features/post/widgets/home_header.dart';
 import 'package:simple_app/features/post/widgets/post_card.dart';
 import 'package:simple_app/features/post/widgets/quick_links_row.dart';
 import 'package:simple_app/features/post/widgets/story_item.dart';
+import '../models/post_model.dart';
 import '../provider/post_provider.dart';
 
 class PostScreen extends StatefulWidget {
@@ -69,11 +70,13 @@ class _PostScreenState extends State<PostScreen> {
     super.initState();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       context.read<PostProvider>().fetchPosts();
     });
   }
 
   void _onScroll() {
+    if (!_scrollController.hasClients) return;
     if (_scrollController.position.pixels >=
         _scrollController.position.maxScrollExtent - 300) {
       context.read<PostProvider>().loadMore();
@@ -94,8 +97,6 @@ class _PostScreenState extends State<PostScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<PostProvider>();
-
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -103,7 +104,7 @@ class _PostScreenState extends State<PostScreen> {
         floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         floatingActionButton: _CreatePostFab(onTap: _openCreatePost),
         body: RefreshIndicator(
-          onRefresh: provider.fetchPosts,
+          onRefresh: () => context.read<PostProvider>().fetchPosts(),
           edgeOffset: MediaQuery.paddingOf(context).top,
           child: CustomScrollView(
             controller: _scrollController,
@@ -119,8 +120,10 @@ class _PostScreenState extends State<PostScreen> {
               const SliverToBoxAdapter(
                 child: QuickLinksRow(items: _quickLinks),
               ),
-              ..._bodySlivers(provider),
-
+              Consumer<PostProvider>(
+                builder: (_, provider, _) =>
+                    SliverMainAxisGroup(slivers: _bodySlivers(provider)),
+              ),
               const SliverToBoxAdapter(child: SizedBox(height: 80)),
             ],
           ),
@@ -130,9 +133,10 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   List<Widget> _bodySlivers(PostProvider provider) {
+    final posts = provider.posts;
+
     return switch (provider.state) {
-      ViewState.initial ||
-      ViewState.loading when provider.posts.isEmpty => const [
+      ViewState.initial || ViewState.loading when posts.isEmpty => const [
         SliverFillRemaining(
           hasScrollBody: false,
           child: Center(
@@ -143,7 +147,7 @@ class _PostScreenState extends State<PostScreen> {
           ),
         ),
       ],
-      ViewState.error => [
+      ViewState.error when posts.isEmpty => [
         SliverFillRemaining(
           hasScrollBody: false,
           child: Center(
@@ -190,22 +194,22 @@ class _PostScreenState extends State<PostScreen> {
           padding: const EdgeInsets.symmetric(vertical: 8),
           sliver: SliverList.builder(
             itemCount:
-                provider.posts.length +
-                (provider.posts.length >= _communitiesAt ? 1 : 0) +
+                posts.length +
+                (posts.length >= _communitiesAt ? 1 : 0) +
                 (provider.hasMore &&
                         (provider.isLoadingMore ||
                             provider.paginationErrorMessage != null)
                     ? 1
                     : 0),
             itemBuilder: (_, i) {
-              final hasSection = provider.posts.length >= _communitiesAt;
+              final hasSection = posts.length >= _communitiesAt;
 
               if (hasSection && i == _communitiesAt) {
                 return CommunitiesSection(onSeeAll: () {});
               }
 
               final postIndex = (hasSection && i > _communitiesAt) ? i - 1 : i;
-              if (postIndex >= provider.posts.length) {
+              if (postIndex >= posts.length) {
                 if (provider.isLoadingMore) {
                   return const Padding(
                     padding: EdgeInsets.all(16),
@@ -217,10 +221,15 @@ class _PostScreenState extends State<PostScreen> {
                   onRetry: provider.loadMore,
                 );
               }
-              final post = provider.posts[postIndex];
-              return PostCard(
-                key: ValueKey('${post.uniqueKey}_$postIndex'),
-                post: post,
+              final post = posts[postIndex];
+              return Selector<PostProvider, PostModel?>(
+                key: ValueKey(post.uniqueKey),
+                selector: (_, provider) => postIndex < provider.posts.length
+                    ? provider.posts[postIndex]
+                    : null,
+                builder: (_, selectedPost, _) => selectedPost == null
+                    ? const SizedBox.shrink()
+                    : PostCard(post: selectedPost),
               );
             },
           ),

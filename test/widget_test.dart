@@ -12,6 +12,22 @@ import 'package:simple_app/features/post/provider/post_provider.dart';
 import 'package:simple_app/features/post/repository/post_repository.dart';
 
 void main() {
+  test('posts exposes a stable unmodifiable view', () async {
+    final provider = PostProvider(
+      repository: _FakePostRepository([
+        _page([_post(1)], count: 1),
+      ]),
+    );
+
+    final postsBeforeFetch = provider.posts;
+    expect(identical(postsBeforeFetch, provider.posts), isTrue);
+
+    await provider.fetchPosts();
+
+    expect(identical(provider.posts, provider.posts), isTrue);
+    expect(() => provider.posts.add(_post(2)), throwsUnsupportedError);
+  });
+
   test('empty response enters the empty state', () async {
     final repository = _FakePostRepository([_page(const [], count: 0)]);
     final provider = PostProvider(repository: repository);
