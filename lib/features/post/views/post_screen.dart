@@ -131,6 +131,7 @@ class _PostScreenState extends State<PostScreen> {
 
   List<Widget> _bodySlivers(PostProvider provider) {
     return switch (provider.state) {
+      ViewState.initial ||
       ViewState.loading when provider.posts.isEmpty => const [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -166,14 +167,36 @@ class _PostScreenState extends State<PostScreen> {
           ),
         ),
       ],
+      ViewState.empty => const [
+        SliverFillRemaining(
+          hasScrollBody: false,
+          child: Center(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('No posts yet. Pull to refresh.'),
+            ),
+          ),
+        ),
+      ],
       _ => [
+        if (provider.errorMessage != null)
+          SliverToBoxAdapter(
+            child: _InlineError(
+              message: provider.errorMessage!,
+              onRetry: provider.fetchPosts,
+            ),
+          ),
         SliverPadding(
           padding: const EdgeInsets.symmetric(vertical: 8),
           sliver: SliverList.builder(
             itemCount:
                 provider.posts.length +
                 (provider.posts.length >= _communitiesAt ? 1 : 0) +
-                (provider.hasMore ? 1 : 0),
+                (provider.hasMore &&
+                        (provider.isLoadingMore ||
+                            provider.paginationErrorMessage != null)
+                    ? 1
+                    : 0),
             itemBuilder: (_, i) {
               final hasSection = provider.posts.length >= _communitiesAt;
 
@@ -183,9 +206,15 @@ class _PostScreenState extends State<PostScreen> {
 
               final postIndex = (hasSection && i > _communitiesAt) ? i - 1 : i;
               if (postIndex >= provider.posts.length) {
-                return const Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Center(child: CircularProgressIndicator()),
+                if (provider.isLoadingMore) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+                return _InlineError(
+                  message: provider.paginationErrorMessage!,
+                  onRetry: provider.loadMore,
                 );
               }
               final post = provider.posts[postIndex];
@@ -199,6 +228,24 @@ class _PostScreenState extends State<PostScreen> {
       ],
     };
   }
+}
+
+class _InlineError extends StatelessWidget {
+  const _InlineError({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: Row(
+      children: [
+        Expanded(child: Text(message)),
+        TextButton(onPressed: onRetry, child: const Text('Retry')),
+      ],
+    ),
+  );
 }
 
 class _CreatePostFab extends StatelessWidget {

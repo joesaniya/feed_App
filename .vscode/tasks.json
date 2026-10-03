@@ -1,0 +1,40 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Flutter: Run release (local auth)",
+      "type": "process",
+      "command": "flutter",
+      "args": [
+        "run",
+        "--release",
+        "--dart-define-from-file=.dart_defines.json"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Flutter: Build Android APK (local auth)",
+      "type": "process",
+      "command": "flutter",
+      "args": [
+        "build",
+        "apk",
+        "--release",
+        "--dart-define-from-file=.dart_defines.json"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Flutter: Build Android App Bundle (local auth)",
+      "type": "process",
+      "command": "flutter",
+      "args": [
+        "build",
+        "appbundle",
+        "--release",
+        "--dart-define-from-file=.dart_defines.json"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

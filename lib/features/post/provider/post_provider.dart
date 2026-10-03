@@ -1,11 +1,9 @@
-import 'dart:developer';
-
 import 'package:flutter/foundation.dart';
 import '../../../core/api/api_exception.dart';
 import '../models/post_model.dart';
 import '../repository/post_repository.dart';
 
-enum ViewState { idle, loading, success, error }
+enum ViewState { initial, loading, loaded, loadingMore, empty, error }
 
 class PostProvider extends ChangeNotifier {
   final PostRepository _repository;
@@ -14,49 +12,74 @@ class PostProvider extends ChangeNotifier {
   PostProvider({PostRepository? repository})
     : _repository = repository ?? PostRepository();
 
-  ViewState _state = ViewState.idle;
+  ViewState _state = ViewState.initial;
   List<PostModel> _posts = [];
   String? _errorMessage;
+  String? _paginationErrorMessage;
 
-  int _page = 1;
+  int _page = 0;
   int _totalCount = 0;
   bool _hasMore = true;
-  bool _isLoadingMore = false;
+  bool _isRefreshing = false;
+  int _requestGeneration = 0;
 
   ViewState get state => _state;
   List<PostModel> get posts => List.unmodifiable(_posts);
   String? get errorMessage => _errorMessage;
+  String? get paginationErrorMessage => _paginationErrorMessage;
   int get totalCount => _totalCount;
   bool get hasMore => _hasMore;
-  bool get isLoadingMore => _isLoadingMore;
+  bool get isLoadingMore => _state == ViewState.loadingMore;
   bool get isLoading => _state == ViewState.loading;
 
-
   Future<void> fetchPosts() async {
-    _page = 1;
-    _hasMore = true;
-    _state = ViewState.loading;
+    if (_isRefreshing) return;
+
+    final generation = ++_requestGeneration;
+    _isRefreshing = true;
+    _paginationErrorMessage = null;
+    _errorMessage = null;
+    if (_posts.isEmpty) _state = ViewState.loading;
     notifyListeners();
 
     try {
       final result = await _repository.getLatestPosts(page: 1, limit: _limit);
-      
-      _posts = result.posts;
+
+      if (generation != _requestGeneration) return;
+      _posts = _uniquePosts(result.posts);
+      _page = 1;
       _totalCount = result.totalCount;
-      _hasMore = result.posts.length >= _limit;
-      _state = ViewState.success;
+      _hasMore = _canLoadMore(result.posts.length);
+      _state = _posts.isEmpty ? ViewState.empty : ViewState.loaded;
     } on ApiException catch (e) {
-      _errorMessage = e.message;
-      _state = ViewState.error;
+      if (generation == _requestGeneration) {
+        _errorMessage = e.message;
+        _state = _posts.isEmpty ? ViewState.error : ViewState.loaded;
+      }
+    } catch (_) {
+      if (generation == _requestGeneration) {
+        _errorMessage = 'Unable to load posts. Please try again.';
+        _state = _posts.isEmpty ? ViewState.error : ViewState.loaded;
+      }
+    } finally {
+      if (generation == _requestGeneration) {
+        _isRefreshing = false;
+        notifyListeners();
+      }
     }
-    notifyListeners();
   }
 
-  
   Future<void> loadMore() async {
-    if (_isLoadingMore || !_hasMore || _state != ViewState.success) return;
+    if (_isRefreshing ||
+        isLoadingMore ||
+        !_hasMore ||
+        _state != ViewState.loaded) {
+      return;
+    }
 
-    _isLoadingMore = true;
+    final generation = _requestGeneration;
+    _paginationErrorMessage = null;
+    _state = ViewState.loadingMore;
     notifyListeners();
 
     try {
@@ -65,15 +88,38 @@ class PostProvider extends ChangeNotifier {
         page: next,
         limit: _limit,
       );
+      if (generation != _requestGeneration) return;
       _page = next;
-      _posts = [..._posts, ...result.posts];
-      _hasMore = result.posts.length >= _limit;
+      _posts = _uniquePosts([..._posts, ...result.posts]);
+      if (result.totalCount > 0) _totalCount = result.totalCount;
+      _hasMore = _canLoadMore(result.posts.length);
     } on ApiException catch (e) {
-      _errorMessage =
-          e.message; 
+      if (generation == _requestGeneration) {
+        _paginationErrorMessage = e.message;
+      }
+    } catch (_) {
+      if (generation == _requestGeneration) {
+        _paginationErrorMessage =
+            'Unable to load more posts. Please try again.';
+      }
     } finally {
-      _isLoadingMore = false;
-      notifyListeners();
+      if (generation == _requestGeneration) {
+        _state = ViewState.loaded;
+        notifyListeners();
+      }
     }
+  }
+
+  bool _canLoadMore(int lastPageLength) {
+    if (_totalCount > 0) return _posts.length < _totalCount;
+    return lastPageLength >= _limit;
+  }
+
+  List<PostModel> _uniquePosts(List<PostModel> posts) {
+    final unique = <String, PostModel>{};
+    for (final post in posts) {
+      unique.putIfAbsent(post.uniqueKey, () => post);
+    }
+    return unique.values.toList(growable: false);
   }
 }

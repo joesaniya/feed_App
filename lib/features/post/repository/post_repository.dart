@@ -1,5 +1,6 @@
 import '../../../core/api/api_client.dart';
 import '../../../core/api/api_endpoints.dart';
+import '../../../core/api/api_exception.dart';
 import '../models/post_model.dart';
 
 class PostRepository {
@@ -12,6 +13,12 @@ class PostRepository {
       ApiEndpoints.latestPosts,
       query: {'page_no': page, 'limit': limit},
     );
-    return PostsPage.fromJson(data as Map<String, dynamic>);
+    if (data is Map<String, dynamic>) return PostsPage.fromJson(data);
+    if (data is Map) {
+      return PostsPage.fromJson(
+        data.map((key, value) => MapEntry(key.toString(), value)),
+      );
+    }
+    throw ApiException('The server returned an invalid posts response.');
   }
 }

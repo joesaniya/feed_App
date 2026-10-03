@@ -18,7 +18,7 @@ class ApiClient {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-     options.headers['Authorization'] = 'Bearer ${AppConfig.authToken}';
+          options.headers['Authorization'] = 'Bearer ${AppConfig.authToken}';
           if (kDebugMode) debugPrint(' ${options.method} ${options.uri}');
           handler.next(options);
         },
@@ -31,8 +31,9 @@ class ApiClient {
           handler.next(response);
         },
         onError: (e, handler) {
-          if (kDebugMode)
+          if (kDebugMode) {
             debugPrint(' ${e.response?.statusCode} ${e.message}');
+          }
           handler.next(e);
         },
       ),
@@ -54,6 +55,12 @@ class ApiClient {
   Future<dynamic> delete(String path) => _request(() => _dio.delete(path));
 
   Future<dynamic> _request(Future<Response> Function() call) async {
+    if (AppConfig.authToken.isEmpty) {
+      throw ApiException(
+        'Authentication is not configured. Provide AUTH_TOKEN at launch.',
+      );
+    }
+
     try {
       final response = await call();
       return response.data;

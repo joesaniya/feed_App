@@ -1,5 +1,20 @@
-int _int(dynamic v) => (v as num?)?.toInt() ?? 0;
-bool _bool(dynamic v) => v == true;
+int _int(Object? value) =>
+    value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+bool _bool(Object? value) => value == true || value == 1 || value == 'true';
+String _string(Object? value) => value?.toString() ?? '';
+String? _optionalString(Object? value) => value is String ? value : null;
+List<Object?> _list(Object? value) => value is List ? value : const [];
+
+Map<String, dynamic>? _map(Object? value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) {
+    return value.map((key, value) => MapEntry(key.toString(), value));
+  }
+  return null;
+}
+
+DateTime? _dateTime(Object? value) =>
+    DateTime.tryParse(_string(value))?.toLocal();
 
 class PostFile {
   final String id;
@@ -15,16 +30,22 @@ class PostFile {
   });
 
   bool get isVideo =>
-      const ['mp4', 'mov', 'm4v', 'webm', 'avi'].contains(fileType.toLowerCase()) ||
+      const [
+        'mp4',
+        'mov',
+        'm4v',
+        'webm',
+        'avi',
+      ].contains(fileType.toLowerCase()) ||
       fileUrl.contains('.m3u8');
-String get previewUrl => isVideo ? thumbnail : fileUrl;
+  String get previewUrl => isVideo ? thumbnail : fileUrl;
 
   factory PostFile.fromJson(Map<String, dynamic> json) => PostFile(
-        id: json['id'] as String? ?? '',
-        fileType: json['file_type'] as String? ?? '',
-        fileUrl: json['file_url'] as String? ?? '',
-        thumbnail: json['thumbnail'] as String? ?? '',
-      );
+    id: _string(json['id']),
+    fileType: _string(json['file_type']),
+    fileUrl: _string(json['file_url']),
+    thumbnail: _string(json['thumbnail']),
+  );
 }
 
 class PostUser {
@@ -33,10 +54,8 @@ class PostUser {
 
   PostUser({required this.id, required this.username});
 
-  factory PostUser.fromJson(Map<String, dynamic>? json) => PostUser(
-        id: json?['id'] as String? ?? '',
-        username: json?['username'] as String? ?? '',
-      );
+  factory PostUser.fromJson(Map<String, dynamic>? json) =>
+      PostUser(id: _string(json?['id']), username: _string(json?['username']));
 }
 
 class PostProfile {
@@ -53,10 +72,10 @@ class PostProfile {
   String get fullName => '$firstName $lastName'.trim();
 
   factory PostProfile.fromJson(Map<String, dynamic>? json) => PostProfile(
-        firstName: (json?['first_name'] as String? ?? '').trim(),
-        lastName: (json?['last_name'] as String? ?? '').trim(),
-        profilePicture: json?['profile_picture'] as String?,
-      );
+    firstName: _string(json?['first_name']).trim(),
+    lastName: _string(json?['last_name']).trim(),
+    profilePicture: _optionalString(json?['profile_picture']),
+  );
 }
 
 class PostLocation {
@@ -68,8 +87,8 @@ class PostLocation {
   static PostLocation? fromJson(Map<String, dynamic>? json) {
     if (json == null) return null;
     return PostLocation(
-      name: json['name'] as String? ?? '',
-      address: json['address'] as String? ?? '',
+      name: _string(json['name']),
+      address: _string(json['address']),
     );
   }
 }
@@ -82,10 +101,7 @@ class PostType {
 
   static PostType? fromJson(Map<String, dynamic>? json) {
     if (json == null) return null;
-    return PostType(
-      name: json['name'] as String? ?? '',
-      slug: json['slug'] as String? ?? '',
-    );
+    return PostType(name: _string(json['name']), slug: _string(json['slug']));
   }
 }
 
@@ -102,11 +118,11 @@ class RepostedBy {
 
   static RepostedBy? fromJson(Map<String, dynamic>? json) {
     if (json == null) return null;
-    final user = json['user'] as Map<String, dynamic>?;
-    final profile = PostProfile.fromJson(json['profile'] as Map<String, dynamic>?);
+    final user = _map(json['user']);
+    final profile = PostProfile.fromJson(_map(json['profile']));
     return RepostedBy(
-      userId: user?['id'] as String? ?? '',
-      username: user?['username'] as String? ?? '',
+      userId: _string(user?['id']),
+      username: _string(user?['username']),
       fullName: profile.fullName,
     );
   }
@@ -172,22 +188,21 @@ class PostModel {
 
   String get uniqueKey => '${id}_${repostedBy?.userId ?? 'orig'}';
 
-  
   String get plainContent => content
       .replaceAll(RegExp(r'<[^>]*>'), '\n')
       .replaceAll(RegExp(r'\n{3,}'), '\n\n')
       .trim();
 
   factory PostModel.fromJson(Map<String, dynamic> json) {
-    final categories = json['post_type_category'] as List? ?? [];
-    final subCategories = json['post_type_sub_category'] as List? ?? [];
+    final categories = _list(json['post_type_category']);
+    final subCategories = _list(json['post_type_sub_category']);
 
     return PostModel(
-      id: json['id'] as String? ?? '',
-      userId: json['user_id'] as String? ?? '',
-      content: json['content'] as String? ?? '',
-      feeling: json['feeling'] as String?,
-      createdAt: DateTime.tryParse(json['createdAt'] as String? ?? '')?.toLocal(),
+      id: _string(json['id']),
+      userId: _string(json['user_id']),
+      content: _string(json['content']),
+      feeling: _optionalString(json['feeling']),
+      createdAt: _dateTime(json['createdAt']),
       likesCount: _int(json['likes_count']),
       commentsCount: _int(json['comments_count']),
       totalCommentCount: _int(json['total_comment_count']),
@@ -198,26 +213,26 @@ class PostModel {
       isMyPost: _bool(json['is_my_post']),
       ifFollowing: _bool(json['if_following']),
       ifFriend: _bool(json['if_friend']),
-      user: PostUser.fromJson(json['user'] as Map<String, dynamic>?),
-      profile: PostProfile.fromJson(json['profile'] as Map<String, dynamic>?),
-      postType: PostType.fromJson(json['post_type'] as Map<String, dynamic>?),
-      location: PostLocation.fromJson(json['location'] as Map<String, dynamic>?),
-      files: (json['files'] as List? ?? [])
-          .map((e) => PostFile.fromJson(e as Map<String, dynamic>))
+      user: PostUser.fromJson(_map(json['user'])),
+      profile: PostProfile.fromJson(_map(json['profile'])),
+      postType: PostType.fromJson(_map(json['post_type'])),
+      location: PostLocation.fromJson(_map(json['location'])),
+      files: _list(json['files'])
+          .map(_map)
+          .whereType<Map<String, dynamic>>()
+          .map(PostFile.fromJson)
           .toList(),
       categoryName: categories.isNotEmpty
-          ? (categories.first as Map<String, dynamic>)['name'] as String?
+          ? _optionalString(_map(categories.first)?['name'])
           : null,
       subCategoryName: subCategories.isNotEmpty
-          ? (subCategories.first as Map<String, dynamic>)['name'] as String?
+          ? _optionalString(_map(subCategories.first)?['name'])
           : null,
-      repostedBy:
-          RepostedBy.fromJson(json['reposted_by_user'] as Map<String, dynamic>?),
-      repostedTime: DateTime.tryParse(json['reposted_time'] as String? ?? '')?.toLocal(),
+      repostedBy: RepostedBy.fromJson(_map(json['reposted_by_user'])),
+      repostedTime: _dateTime(json['reposted_time']),
     );
   }
 }
-
 
 class PostsPage {
   final int totalCount;
@@ -226,13 +241,14 @@ class PostsPage {
   PostsPage({required this.totalCount, required this.posts});
 
   factory PostsPage.fromJson(Map<String, dynamic> json) {
-    final inner = (json['data'] as Map<String, dynamic>?)?['data']
-            as Map<String, dynamic>? ??
-        {};
+    final inner = _map(_map(json['data'])?['data']);
+    final rows = inner?['rows'];
     return PostsPage(
-      totalCount: _int(inner['count']),
-      posts: (inner['rows'] as List? ?? [])
-          .map((e) => PostModel.fromJson(e as Map<String, dynamic>))
+      totalCount: _int(inner?['count']),
+      posts: (rows is List ? rows : const [])
+          .map(_map)
+          .whereType<Map<String, dynamic>>()
+          .map(PostModel.fromJson)
           .toList(),
     );
   }
