@@ -202,10 +202,7 @@ class _PostScreenState extends State<PostScreen> {
               final postIndex = (hasSection && i > _communitiesAt) ? i - 1 : i;
               if (postIndex >= posts.length) {
                 if (provider.isLoadingMore) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Center(child: CircularProgressIndicator()),
-                  );
+                  return const _PaginationSkeleton();
                 }
                 return _InlineError(
                   message: provider.paginationErrorMessage!,
@@ -273,6 +270,28 @@ class _FeedSkeleton extends StatelessWidget {
           child: ExcludeSemantics(child: const _SkeletonPost()),
         ),
       ],
+    ),
+  );
+}
+
+class _PaginationSkeleton extends StatelessWidget {
+  const _PaginationSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    child: Semantics(
+      label: 'Loading more posts',
+      liveRegion: true,
+      child: ExcludeSemantics(
+        child: Column(
+          children: const [
+            _SkeletonPost(),
+            SizedBox(height: 12),
+            _SkeletonPost(),
+          ],
+        ),
+      ),
     ),
   );
 }
