@@ -291,14 +291,18 @@ class _Avatar extends StatelessWidget {
     );
     if (url == null || url!.isEmpty) return fallback;
 
-    return ClipOval(
-      child: Image.network(
-        url!,
-        width: 44,
-        height: 44,
-        fit: BoxFit.cover,
-        cacheWidth: 132,
-        errorBuilder: (_, __, ___) => fallback,
+    return Semantics(
+      image: true,
+      label: '$name profile picture',
+      child: ClipOval(
+        child: Image.network(
+          url!,
+          width: 44,
+          height: 44,
+          fit: BoxFit.cover,
+          cacheWidth: 132,
+          errorBuilder: (_, __, ___) => fallback,
+        ),
       ),
     );
   }
@@ -508,62 +512,66 @@ class _MediaTile extends StatelessWidget {
       ),
     );
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final cacheWidth =
-            (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context))
-                .ceil()
-                .clamp(1, 1600)
-                .toInt();
+    return Semantics(
+      image: true,
+      label: file.isVideo ? 'Post video preview' : 'Post image',
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final cacheWidth =
+              (constraints.maxWidth * MediaQuery.devicePixelRatioOf(context))
+                  .ceil()
+                  .clamp(1, 1600)
+                  .toInt();
 
-        return ClipRRect(
-          borderRadius: BorderRadius.circular(_PostMedia._radius),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (file.previewUrl.isEmpty)
-                placeholder
-              else
-                Image.network(
-                  file.previewUrl,
-                  fit: BoxFit.cover,
-                  cacheWidth: cacheWidth,
-                  frameBuilder: (_, child, frame, loadedSynchronously) =>
-                      loadedSynchronously || frame != null
-                      ? child
-                      : loadingPlaceholder,
-                  errorBuilder: (_, __, ___) => placeholder,
-                ),
-              if (file.isVideo)
-                const Center(
-                  child: CircleAvatar(
-                    radius: 24,
-                    backgroundColor: Colors.black54,
-                    child: Icon(
-                      Icons.play_arrow,
-                      color: Colors.white,
-                      size: 30,
+          return ClipRRect(
+            borderRadius: BorderRadius.circular(_PostMedia._radius),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (file.previewUrl.isEmpty)
+                  placeholder
+                else
+                  Image.network(
+                    file.previewUrl,
+                    fit: BoxFit.cover,
+                    cacheWidth: cacheWidth,
+                    frameBuilder: (_, child, frame, loadedSynchronously) =>
+                        loadedSynchronously || frame != null
+                        ? child
+                        : loadingPlaceholder,
+                    errorBuilder: (_, __, ___) => placeholder,
+                  ),
+                if (file.isVideo)
+                  const Center(
+                    child: CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Colors.black54,
+                      child: Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 30,
+                      ),
                     ),
                   ),
-                ),
-              if (overlayCount > 0)
-                Container(
-                  color: Colors.black45,
-                  alignment: Alignment.center,
-                  child: Text(
-                    '+$overlayCount',
-                    style: const TextStyle(
-                      fontFamily: _font,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                if (overlayCount > 0)
+                  Container(
+                    color: Colors.black45,
+                    alignment: Alignment.center,
+                    child: Text(
+                      '+$overlayCount',
+                      style: const TextStyle(
+                        fontFamily: _font,
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-        );
-      },
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }

@@ -1,3 +1,4 @@
 {
-  "AUTH_TOKEN": "replace-with-your-assignment-token"
+  "AUTH_TOKEN": "replace-with-your-assignment-token",
+  "API_BASE_URL": "https://liveapi.cness.io"
 }

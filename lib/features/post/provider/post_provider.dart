@@ -1,5 +1,6 @@
 import 'dart:collection';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/api/api_exception.dart';
 import '../models/post_model.dart';
@@ -27,6 +28,7 @@ class PostProvider extends ChangeNotifier {
   bool _hasMore = true;
   bool _isRefreshing = false;
   int _requestGeneration = 0;
+  CancelToken? _activeCancelToken;
 
   ViewState get state => _state;
   List<PostModel> get posts => _postsView;
@@ -40,7 +42,10 @@ class PostProvider extends ChangeNotifier {
   Future<void> fetchPosts() async {
     if (_isRefreshing) return;
 
+    _activeCancelToken?.cancel('Superseded by refresh.');
     final generation = ++_requestGeneration;
+    final cancelToken = CancelToken();
+    _activeCancelToken = cancelToken;
     _isRefreshing = true;
     _paginationErrorMessage = null;
     _errorMessage = null;
@@ -48,7 +53,11 @@ class PostProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final result = await _repository.getLatestPosts(page: 1, limit: _limit);
+      final result = await _repository.getLatestPosts(
+        page: 1,
+        limit: _limit,
+        cancelToken: cancelToken,
+      );
 
       if (generation != _requestGeneration) return;
       _replacePosts(_uniquePosts(result.posts));
@@ -68,6 +77,7 @@ class PostProvider extends ChangeNotifier {
       }
     } finally {
       if (generation == _requestGeneration) {
+        _activeCancelToken = null;
         _isRefreshing = false;
         notifyListeners();
       }
@@ -83,6 +93,8 @@ class PostProvider extends ChangeNotifier {
     }
 
     final generation = _requestGeneration;
+    final cancelToken = CancelToken();
+    _activeCancelToken = cancelToken;
     _paginationErrorMessage = null;
     _state = ViewState.loadingMore;
     notifyListeners();
@@ -92,6 +104,7 @@ class PostProvider extends ChangeNotifier {
       final result = await _repository.getLatestPosts(
         page: next,
         limit: _limit,
+        cancelToken: cancelToken,
       );
       if (generation != _requestGeneration) return;
       _page = next;
@@ -109,6 +122,7 @@ class PostProvider extends ChangeNotifier {
       }
     } finally {
       if (generation == _requestGeneration) {
+        _activeCancelToken = null;
         _state = ViewState.loaded;
         notifyListeners();
       }
@@ -140,5 +154,13 @@ class PostProvider extends ChangeNotifier {
       unique.putIfAbsent(post.uniqueKey, () => post);
     }
     return unique.values.toList(growable: false);
+  }
+
+  @override
+  void dispose() {
+    _requestGeneration++;
+    _activeCancelToken?.cancel('Feed provider disposed.');
+    _activeCancelToken = null;
+    super.dispose();
   }
 }

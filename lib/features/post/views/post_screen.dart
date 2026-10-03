@@ -136,17 +136,8 @@ class _PostScreenState extends State<PostScreen> {
     final posts = provider.posts;
 
     return switch (provider.state) {
-      ViewState.initial || ViewState.loading when posts.isEmpty => const [
-        SliverFillRemaining(
-          hasScrollBody: false,
-          child: Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            ),
-          ),
-        ),
-      ],
+      ViewState.initial ||
+      ViewState.loading when posts.isEmpty => const [_FeedSkeleton()],
       ViewState.error when posts.isEmpty => [
         SliverFillRemaining(
           hasScrollBody: false,
@@ -246,13 +237,104 @@ class _InlineError extends StatelessWidget {
   final VoidCallback onRetry;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(16),
-    child: Row(
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Semantics(
+        liveRegion: true,
+        child: Row(
+          children: [
+            Expanded(child: Text(message)),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedSkeleton extends StatelessWidget {
+  const _FeedSkeleton();
+
+  @override
+  Widget build(BuildContext context) => SliverPadding(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+    sliver: SliverList.list(
       children: [
-        Expanded(child: Text(message)),
-        TextButton(onPressed: onRetry, child: const Text('Retry')),
+        Semantics(
+          label: 'Loading post',
+          liveRegion: true,
+          child: ExcludeSemantics(child: const _SkeletonPost()),
+        ),
+        const SizedBox(height: 12),
+        Semantics(
+          label: 'Loading post',
+          liveRegion: true,
+          child: ExcludeSemantics(child: const _SkeletonPost()),
+        ),
       ],
+    ),
+  );
+}
+
+class _SkeletonPost extends StatelessWidget {
+  const _SkeletonPost();
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const _SkeletonBlock(width: 42, height: 42, radius: 24),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                _SkeletonBlock(width: 132, height: 12),
+                SizedBox(height: 8),
+                _SkeletonBlock(width: 72, height: 9),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        const _SkeletonBlock(width: double.infinity, height: 12),
+        const SizedBox(height: 8),
+        const _SkeletonBlock(width: 220, height: 12),
+        const SizedBox(height: 14),
+        const _SkeletonBlock(width: double.infinity, height: 120, radius: 12),
+      ],
+    ),
+  );
+}
+
+class _SkeletonBlock extends StatelessWidget {
+  const _SkeletonBlock({
+    required this.width,
+    required this.height,
+    this.radius = 6,
+  });
+
+  final double width;
+  final double height;
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    height: height,
+    child: DecoratedBox(
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8EBEF),
+        borderRadius: BorderRadius.circular(radius),
+      ),
     ),
   );
 }

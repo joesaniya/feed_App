@@ -5,34 +5,33 @@ import 'api_endpoints.dart';
 import 'api_exception.dart';
 
 class ApiClient {
-  ApiClient._internal() {
-    _dio = Dio(
-      BaseOptions(
-        baseUrl: ApiEndpoints.baseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 15),
-        headers: {'Content-Type': 'application/json'},
-      ),
-    );
-
+  ApiClient({Dio? dio, String? authToken})
+    : _dio = dio ?? _createDio(),
+      _authToken = authToken ?? AppConfig.authToken {
     _dio.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          options.headers['Authorization'] = 'Bearer ${AppConfig.authToken}';
-          if (kDebugMode) debugPrint(' ${options.method} ${options.uri}');
+          options.headers['Authorization'] = 'Bearer $_authToken';
+          if (kDebugMode) {
+            debugPrint('[api] ${options.method} ${options.uri.path}');
+          }
           handler.next(options);
         },
         onResponse: (response, handler) {
           if (kDebugMode) {
             debugPrint(
-              ' ${response.statusCode} ${response.requestOptions.uri}',
+              '[api] ${response.statusCode} '
+              '${response.requestOptions.uri.path}',
             );
           }
           handler.next(response);
         },
         onError: (e, handler) {
-          if (kDebugMode) {
-            debugPrint(' ${e.response?.statusCode} ${e.message}');
+          if (kDebugMode && e.type != DioExceptionType.cancel) {
+            debugPrint(
+              '[api] ${e.type.name} ${e.requestOptions.method} '
+              '${e.requestOptions.uri.path}: ${e.message}',
+            );
           }
           handler.next(e);
         },
@@ -40,11 +39,28 @@ class ApiClient {
     );
   }
 
-  static final ApiClient instance = ApiClient._internal();
-  late final Dio _dio;
+  static Dio _createDio() {
+    return Dio(
+      BaseOptions(
+        baseUrl: ApiEndpoints.baseUrl,
+        connectTimeout: const Duration(seconds: 15),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {'Content-Type': 'application/json'},
+      ),
+    );
+  }
 
-  Future<dynamic> get(String path, {Map<String, dynamic>? query}) =>
-      _request(() => _dio.get(path, queryParameters: query));
+  static final ApiClient instance = ApiClient();
+  final Dio _dio;
+  final String _authToken;
+
+  Future<dynamic> get(
+    String path, {
+    Map<String, dynamic>? query,
+    CancelToken? cancelToken,
+  }) => _request(
+    () => _dio.get(path, queryParameters: query, cancelToken: cancelToken),
+  );
 
   Future<dynamic> post(String path, {dynamic data}) =>
       _request(() => _dio.post(path, data: data));
@@ -55,7 +71,7 @@ class ApiClient {
   Future<dynamic> delete(String path) => _request(() => _dio.delete(path));
 
   Future<dynamic> _request(Future<Response> Function() call) async {
-    if (AppConfig.authToken.isEmpty) {
+    if (_authToken.isEmpty) {
       throw ApiException(
         'Authentication is not configured. Provide AUTH_TOKEN at launch.',
       );

@@ -16,7 +16,7 @@ The screen uses Provider with a `ChangeNotifier`. `PostProvider` exposes explici
 
 `ApiClient` centralizes Dio configuration, bearer authentication, timeouts, and network error mapping. The repository requests `/api/user/posts/get/front/latest` with `page_no` and `limit`. The provider prevents overlapping refresh/pagination requests, ignores stale page responses after refresh, appends unique posts, and stops when the reported total is reached (or a short page is returned when no total is provided).
 
-The token is read from the `AUTH_TOKEN` Dart environment define. For local use, copy `.dart_defines.json.example` to `.dart_defines.json` and set the assignment token there. The local file is git-ignored, and the VS Code `simple_app (local auth)` launch configuration uses it. Do not commit a real token; Dart defines are convenient for local assignment runs but are not a secure secret store in a distributed mobile app. Production authentication should use a backend-mediated or short-lived credential flow.
+The token and API host are read from the `AUTH_TOKEN` and `API_BASE_URL` Dart environment defines. `API_BASE_URL` defaults to `https://liveapi.cness.io`. For local use, copy `.dart_defines.json.example` to `.dart_defines.json` and set the assignment token there. The local file is git-ignored, and the VS Code `simple_app (local auth)` launch configuration uses it. Do not commit a real token; Dart defines are convenient for local assignment runs but are not a secure secret store in a distributed mobile app. Production authentication should use a backend-mediated or short-lived credential flow.
 
 ## Running the Application
 
